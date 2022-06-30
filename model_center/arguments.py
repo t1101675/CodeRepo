@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import argparse
+import os
 
 def add_model_config_args(parser: argparse.ArgumentParser):
     """Model arguments"""
@@ -91,4 +92,7 @@ def get_args():
     parser = add_training_args(parser)
     
     args = parser.parse_args()
+    
+    args.local_rank = int(os.getenv("LOCAL_RANK", "0"))
+    
     return args

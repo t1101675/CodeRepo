@@ -30,7 +30,8 @@ class BaseModel(torch.nn.Module):
             config = cls._CONFIG_TYPE.from_pretrained(pretrained_model_name_or_path, **kwargs)
         path = check_web_and_convert_path(pretrained_model_name_or_path, 'model')
         model = cls(config)
-        bmt.load(model, os.path.join(path, 'pytorch_model.pt'), strict=False)
+        ret = bmt.load(model, os.path.join(path, 'pytorch_model.pt'), strict=False)
+        bmt.print_rank(ret)
         return model
 
     @classmethod

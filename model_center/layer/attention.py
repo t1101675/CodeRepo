@@ -55,6 +55,7 @@ class Attention(bmt.DistributedModule):
                        attn_scale : bool = False,
                        dropout_p : float= 0,
                        shared_key_and_value = False,
+                       attn_type = "self"
                        ):
 
         super().__init__()
@@ -122,6 +123,7 @@ class Attention(bmt.DistributedModule):
         self.attn_scale = attn_scale
         self.mask_value = mask_value
         self.shared_key_and_value = shared_key_and_value
+        self.attn_type = attn_type
 
         if dropout_p:
             self.attention_dropout = torch.nn.Dropout(dropout_p)

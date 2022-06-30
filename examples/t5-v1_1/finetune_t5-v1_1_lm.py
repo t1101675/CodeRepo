@@ -13,7 +13,7 @@ import bmtrain as bmt
 from model_center import get_args
 from model_center.model import T5
 from model_center.tokenizer import T5Tokenizer
-from model_center.dataset.t5dataset import DATASET
+from model_center.dataset.t5dataset_lm import DATASET
 from model_center.utils import print_inspect
 from model_center.dataset import DistributedDataLoader
 
@@ -108,7 +108,7 @@ def prepare_dataset(args, tokenizer, base_path, dataset_name, rank, world_size, 
 
 
 def finetune(args, tokenizer, model, optimizer, lr_scheduler, dataset, verbalizer, device):
-    loss_func = bmt.loss.FusedCrossEntropy(ignore_index=-100)
+    loss_func = bmt.loss.FusedCrossEntropy(ignore_index=-100, reduction="none")
 
     # print_inspect(model, '*')
 
@@ -116,27 +116,52 @@ def finetune(args, tokenizer, model, optimizer, lr_scheduler, dataset, verbalize
 
     for epoch in range(20):
         dataloader = {
-            "train": DistributedDataLoader(dataset['train'], batch_size=args.batch_size, shuffle=True, collate_fn=dataset["train"].collate),
+            "train": DistributedDataLoader(dataset['train'], batch_size=args.batch_size, shuffle=False, collate_fn=dataset["train"].collate),
             "dev": DistributedDataLoader(dataset['dev'], batch_size=args.batch_size, shuffle=False, collate_fn=dataset["dev"].collate),
         }
 
         model.train()
         for it, data in enumerate(dataloader['train']):
             # bmt.print_rank("input_ids.size", data["input_ids"].size())
-            # bmt.print_rank("input", tokenizer.decode(data["input_ids"][0].cpu().tolist()))
-            # bmt.print_rank("decoder input", tokenizer.decode(data["decoder_input_ids"][0].cpu().tolist()))
-            # bmt.print_rank("length", data["length"][0])
-            # bmt.print_rank("decoder length", data["decoder_length"][0])
-            # bmt.print_rank("targets", data["targets"][0])
-            # bmt.print_rank("index", data["index"][0])
+            # bmt.print_rank("input", data["input_ids"][2].cpu().tolist())
+            # # bmt.print_rank("input str", tokenizer.decode(data["input_ids"][0].cpu().tolist()))
+            # bmt.print_rank("decoder input", data["decoder_input_ids"][2].cpu().tolist())
+            # # bmt.print_rank("decoder input str", tokenizer.decode(data["decoder_input_ids"][0].cpu().tolist()))
+            # bmt.print_rank("length", data["length"][2])
+            # bmt.print_rank("decoder length", data["decoder_length"][2])
+            # bmt.print_rank("targets", data["targets"][2])
+            # # bmt.print_rank("targets str", tokenizer.decode(data["targets"][0].cpu().tolist()))
+            # bmt.print_rank("index", data["index"][2])
 
             optimizer.zero_grad()
 
             logits = model(**data, return_logits=True)
-            logits = logits.index_select(dim=-1, index=verbalizer)
-            logits = logits[torch.where(data["index"]==1)]
+            
+            bs, seq_len, vocab_size = logits.size()
+            
+            # bmt.print_rank(logits.size())
+            logits = logits.view(-1, vocab_size)
+            # bmt.print_rank(logits.size())
 
-            loss = loss_func(logits, data["targets"])
+            targets = data["targets"].view(-1)
+            
+            loss = loss_func(logits, targets)
+
+            # bmt.print_rank(loss)
+            loss = loss.view(bs, seq_len)
+            # bmt.print_rank(loss)
+            loss = loss * data["loss_mask"]
+            # bmt.print_rank(loss)
+            loss = torch.sum(loss, dim=-1) / torch.sum(data["loss_mask"], dim=-1)
+            # bmt.print_rank(loss)
+            loss = torch.mean(loss, dim=0)
+            # bmt.print_rank(loss)
+            # exit(0)
+            
+            # logits = logits.index_select(dim=-1, index=verbalizer)
+            # logits = logits[torch.where(data["index"]==1)]
+
+            # loss = loss_func(logits, data["targets"])
             global_loss = bmt.sum_loss(loss).item()
 
             loss = optimizer.loss_scale(loss)
@@ -170,10 +195,13 @@ def finetune(args, tokenizer, model, optimizer, lr_scheduler, dataset, verbalize
                     logits = model(**data, return_logits=True)
                     logits = logits.index_select(dim=-1, index=verbalizer)
                     logits = logits[torch.where(data["index"]==1)]
-                    logits = logits.argmax(dim=-1)
+                    preds = logits.argmax(dim=-1)
+                    
+                    # print(preds)
+                    # print(data["labels"])
                 
-                    pd.extend(logits.cpu().tolist())
-                    gt.extend(data["targets"].cpu().tolist())
+                    pd.extend(preds.cpu().tolist())
+                    gt.extend(data["labels"].cpu().tolist())
 
                     bmt.print_rank(
                         "{} | epoch {:3d} | Iter: {:6d}/{:6d} |".format(

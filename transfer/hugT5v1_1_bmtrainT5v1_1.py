@@ -26,10 +26,10 @@ def main():
         ("xxl", 24),
     ]
 
-    for n in [0,1,2,3,4]:
+    for n in [2]:
         ver, layernum = ver_layernum[n]
 
-        hug_model = T5ForConditionalGeneration.from_pretrained(f"google/t5-v1_1-{ver}")
+        hug_model = T5ForConditionalGeneration.from_pretrained(f"/home/guyuxian/checkpoints/t5-v1_1-{ver}")
         inp = hug_model.state_dict()
 
         outpath = f"../configs/t5/t5-v1_1-{ver}/pytorch_model.pt"

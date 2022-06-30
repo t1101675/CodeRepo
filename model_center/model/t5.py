@@ -154,6 +154,7 @@ class T5(BaseModel):
                 output_hidden_states = None, # unused
                 return_dict = True,
                 return_logits = False,
+                *args, **kwargs
     ):
         """ T5 is an encoder-decoder model and converts problems into a text-to-text format.
             This model inherits from BaseModel. This model is also a PyTorch torch.nn.Module subclass. You can use it as a regular PyTorch Module.

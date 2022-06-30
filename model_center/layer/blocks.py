@@ -200,6 +200,7 @@ class CrossAttentionBlock(torch.nn.Module):
             length_scale = length_scale,
             attn_scale = attn_scale,
             dropout_p = dropout_p,
+            attn_type = "cross"
         )
 
         if dropout_p:

@@ -17,15 +17,18 @@ import torch
 import json
 
 class SuperGLUE(torch.utils.data.Dataset):
-    def __init__(self, device="cpu"):
+    def __init__(self, tokenizer, device="cpu"):
         super().__init__()
         self.data = []
+        self.tokenizer = tokenizer
         self.device = device
         self.max_enc_size = 0
         self.max_dec_size = 0
 
     def make_input(self, tokenizer, template, max_encoder_length, max_decoder_length, label):
         input = tokenizer.encode(template)
+        
+        input = input[:-1] # remove <\s>
 
         length = len(input)
 
@@ -35,17 +38,17 @@ class SuperGLUE(torch.utils.data.Dataset):
         # input_tokens = torch.zeros((max_encoder_length,), dtype=torch.int32)
         input_tokens = torch.tensor(input).int()
 
-        input_length = torch.tensor(length, dtype=torch.int32)
+        input_length = torch.tensor(length, dtype=torch.long)
 
-        output = [tokenizer.pad_token_id, tokenizer.convert_tokens_to_ids("<extra_id_0>")]
-        length = len(output)
+        output = [tokenizer.pad_token_id, tokenizer.convert_tokens_to_ids("<extra_id_0>"), self.get_verbalizer(self.tokenizer)[label]]
+        length = len(output) - 1
         # output_tokens = torch.zeros((max_decoder_length,), dtype=torch.int32)
-        output_tokens = torch.tensor(output).int()
-        output_length = torch.tensor(length, dtype=torch.int32)
+        output_tokens = torch.tensor(output[:-1], dtype=torch.long)
+        output_length = torch.tensor(length, dtype=torch.long)
 
-        target = torch.tensor(label, dtype=torch.long)
+        target = torch.tensor(output[1:], dtype=torch.long)
 
-        index = torch.zeros((max_decoder_length,), dtype=torch.int32)
+        index = torch.zeros((length,), dtype=torch.long)
         index[length - 1] = 1
 
         self.data.append({
@@ -55,6 +58,7 @@ class SuperGLUE(torch.utils.data.Dataset):
             "dec_length": output_length,
             "targets": target,
             "index": index,
+            "label": label
         })
         
         if input_length > self.max_enc_size:
@@ -88,8 +92,10 @@ class SuperGLUE(torch.utils.data.Dataset):
             "length": torch.zeros(bs, dtype=torch.long),
             "decoder_input_ids": torch.zeros(bs, self.max_dec_size, dtype=torch.long),
             "decoder_length": torch.zeros(bs, dtype=torch.long),
-            "targets": torch.zeros(bs, dtype=torch.long),
-            "index": torch.zeros(bs, self.max_dec_size, dtype=torch.long)          
+            "targets": torch.zeros(bs, self.max_dec_size, dtype=torch.long),
+            "index": torch.zeros(bs, self.max_dec_size, dtype=torch.long),
+            "labels": torch.zeros(bs, dtype=torch.long),
+            "loss_mask": torch.zeros(bs, self.max_dec_size, dtype=torch.float)
         }
 
         for i in range(bs):
@@ -97,8 +103,10 @@ class SuperGLUE(torch.utils.data.Dataset):
             batch["decoder_input_ids"][i][:len(sample[i]["dec_input"])] = sample[i]["dec_input"]
             batch["length"][i] = sample[i]["enc_length"]
             batch["decoder_length"][i] = sample[i]["dec_length"]
-            batch["targets"][i] = sample[i]["targets"]
+            batch["targets"][i][:len(sample[i]["targets"])] = sample[i]["targets"]
             batch["index"][i][:len(batch["index"])] = sample[i]["index"]
+            batch["labels"][i] = sample[i]["label"]
+            batch["loss_mask"][i][:len(sample[i]["targets"])] = 1
         
         for k in batch:
             batch[k] = batch[k].to(self.device)
@@ -257,20 +265,21 @@ class ReCoRD_Dataset(SuperGLUE):
 
 class RTE_Dataset(SuperGLUE):
     def __init__(self, path, split, rank, world_size, tokenizer, max_encoder_length, max_decoder_length, device="cpu"):
-        super().__init__(device=device)
+        super().__init__(tokenizer, device=device)
 
-        for row in self.read_data("rte", path, split, rank, world_size):
-            label = row["label"]
+        for row in self.read_data("rte-full", path, split, rank, world_size):
+            label = 0 if row["label"] == "not_entailment" else 1
             text_a = row["premise"]
             text_b = row["hypothesis"]
 
-            template = f'Sentence 1: {text_a} Sentence 2: {text_b} Does sentence 1 entails sentence 2? <extra_id_0>.'
+            # template = f'Sentence 1: {text_a} Sentence 2: {text_b} Does sentence 1 entails sentence 2? <extra_id_0>.'
+            template = f'{text_b}? <extra_id_0>. {text_a}'
 
             self.make_input(tokenizer, template, max_encoder_length, max_decoder_length, label)
 
     @classmethod
     def get_verbalizer(cls, tokenizer):
-        return [tokenizer.encode("No")[0], tokenizer.encode("Yes")[0]]
+        return [tokenizer.encode("no")[0], tokenizer.encode("yes")[0]]
 
 
 class WiC_Dataset(SuperGLUE):

@@ -30,15 +30,15 @@ OPTS+=" --save ${BASE_PATH}/results"
 OPTS+=" --save-name finetune-t5-v1_1-ckpt"
 OPTS+=" --lr 0.00001"
 OPTS+=" --inspect-iters 100"
-OPTS+=" --warmup-iters 100"
+OPTS+=" --warmup-iters 0"
 OPTS+=" --lr-decay-style constant"
 OPTS+=" --weight-decay 1e-2"
-OPTS+=" --clip-grad 10.0"
+OPTS+=" --clip-grad 1.0"
 OPTS+=" --loss-scale 4096"
 # OPTS+=" --load ${BASE_PATH}/results/t5-v1_1-${VERSION}.pt"
 
 export PYTHONPATH=${BASE_PATH}
-CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/examples/t5-v1_1/finetune_t5-v1_1.py ${OPTS}"
+CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/examples/t5-v1_1/finetune_t5-v1_1_lm.py ${OPTS}"
 
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
