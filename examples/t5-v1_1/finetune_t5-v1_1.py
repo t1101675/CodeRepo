@@ -27,9 +27,12 @@ def get_model(args):
     return model
 
 def get_optimizer(args, model):
-    optimizer = bmt.optim.AdamOffloadOptimizer(model.parameters(), 
-                                               weight_decay=args.weight_decay, 
-                                               scale=args.loss_scale)
+    optimizer = bmt.optim.AdamOptimizer(model.parameters(),
+                                        weight_decay=args.weight_decay,
+                                        scale=args.loss_scale)
+    # optimizer = bmt.optim.AdamOffloadOptimizer(model.parameters(), 
+    #                                            weight_decay=args.weight_decay, 
+    #                                            scale=args.loss_scale)
     return optimizer
 
 def get_learning_rate_scheduler(args, optimizer):
@@ -130,6 +133,9 @@ def finetune(args, tokenizer, model, optimizer, lr_scheduler, dataset, verbalize
             # bmt.print_rank("targets", data["targets"][0])
             # bmt.print_rank("index", data["index"][0])
 
+            torch.cuda.synchronize()
+            st_time = time.time()
+
             optimizer.zero_grad()
 
             logits = model(**data, return_logits=True)
@@ -145,8 +151,11 @@ def finetune(args, tokenizer, model, optimizer, lr_scheduler, dataset, verbalize
 
             bmt.optim_step(optimizer, lr_scheduler)
 
+            torch.cuda.synchronize()
+            elapsed_time = time.time() - st_time
+
             bmt.print_rank(
-                "train | epoch {:3d} | Iter: {:6d}/{:6d} | loss: {:.4f} | lr: {:.4e}, scale: {:10.4f} | grad_norm: {:.4f} |".format(
+                "train | epoch {:3d} | Iter: {:6d}/{:6d} | loss: {:.4f} | lr: {:.4e}, scale: {:10.4f} | grad_norm: {:.4f} | time: {:.3f}".format(
                     epoch,
                     it,
                     len(dataloader["train"]),
@@ -154,6 +163,7 @@ def finetune(args, tokenizer, model, optimizer, lr_scheduler, dataset, verbalize
                     lr_scheduler.current_lr,
                     int(optimizer.scale),
                     grad_norm,
+                    elapsed_time,
                 )
             )
             # if it % args.inspect_iters == 0: print_inspect(model, "*")

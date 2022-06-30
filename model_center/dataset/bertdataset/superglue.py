@@ -69,8 +69,8 @@ class SuperGLUE(torch.utils.data.Dataset):
 
     def read_data(self, dataset, path, split, rank, world_size):
         if split == 'test': return
-        if split == 'dev': split = 'val'
-        path = f"{path}/{dataset}/{split}.jsonl"
+        if split == 'dev': split = 'validation'
+        path = f"{path}/{dataset}/cache/{split}.jsonl"
         with open(path, encoding='utf8') as f:
             lines = f.readlines()
             for i, row in enumerate(lines):
@@ -163,7 +163,7 @@ class RTE_Dataset(SuperGLUE):
     def __init__(self, path, split, rank, world_size, tokenizer, max_encoder_length):
         super().__init__()
 
-        for row in self.read_data("RTE", path, split, rank, world_size):
+        for row in self.read_data("rte-full", path, split, rank, world_size):
             label = 0 if row["label"]=="not_entailment" else 1
             text_a = row["premise"]
             text_b = row["hypothesis"]

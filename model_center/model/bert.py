@@ -187,6 +187,8 @@ class Bert(BaseModel):
             seq_length = inputs_embeds.size(1)
             device = inputs_embeds.device
 
+        print(device)
+
         with torch.no_grad():
 
             if attention_mask is not None:

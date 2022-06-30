@@ -28,9 +28,12 @@ def get_model(args):
     return model
 
 def get_optimizer(args, model):
-    optimizer = bmt.optim.AdamOffloadOptimizer(model.parameters(), 
-                                               weight_decay=args.weight_decay, 
-                                               scale=args.loss_scale)
+    optimizer = bmt.optim.AdamOptimizer(model.parameters(),
+                                        weight_decay=args.weight_decay,
+                                        scale=args.loss_scale)
+    # optimizer = bmt.optim.AdamOffloadOptimizer(model.parameters(), 
+    #                                            weight_decay=args.weight_decay, 
+    #                                            scale=args.loss_scale)
     return optimizer
 
 def get_learning_rate_scheduler(args, optimizer):

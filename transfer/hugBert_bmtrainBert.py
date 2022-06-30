@@ -21,13 +21,14 @@ from collections import OrderedDict
 from transformers import BertModel, BertConfig, BertLMHeadModel
 from model_center.model.config import BertConfig as myConfig
 
-base_path = '/home/hx/ModelCenter'
+base_path = '/home/guyuxian/ModelCenter'
 
-def convert_model(version : str):
-    config : BertConfig = BertConfig.from_pretrained(version)
+def convert_model(info : str):
+    version, ckpt = info
+    config : BertConfig = BertConfig.from_pretrained(ckpt)
 
     num_layers = config.num_hidden_layers
-    bert = BertModel.from_pretrained(version)
+    bert = BertModel.from_pretrained(ckpt)
     dict = bert.state_dict()
     new_dict = OrderedDict()
 
@@ -59,7 +60,7 @@ def convert_model(version : str):
     new_dict['pooler.dense.weight'] = dict['pooler.dense.weight']
     new_dict['pooler.dense.bias'] = dict['pooler.dense.bias']
 
-    lmhead_bert = BertLMHeadModel.from_pretrained(version)
+    lmhead_bert = BertLMHeadModel.from_pretrained(ckpt)
     dict = lmhead_bert.state_dict()
 
     new_dict['lm_head.dense.weight'] = dict['cls.predictions.transform.dense.weight']
@@ -72,6 +73,13 @@ def convert_model(version : str):
     torch.save(new_dict, os.path.join(base_path, 'configs', 'bert', version, 'pytorch_model.pt'))
 
 if __name__ == "__main__":
-    version_list = ['bert-base-uncased', 'bert-large-uncased', 'bert-base-cased', 'bert-large-cased', 'bert-base-multilingual-cased', 'bert-base-chinese']
+    version_list = [
+        # 'bert-base-uncased', 
+        # ('bert-large-uncased', "/home/guyuxian/checkpoints/bert-large-uncased"),
+        # 'bert-base-cased', 
+        ('bert-large-cased', "/home/guyuxian/checkpoints/bert-large-cased"),
+        # 'bert-base-multilingual-cased', 
+        # 'bert-base-chinese'
+    ]
     for version in version_list:
         convert_model(version)
