@@ -2,7 +2,7 @@
 
 <h1><img src="docs/source/_static/images/logo.png" height="32px"/> ModelCenter</h1>
 
-**Efficient Low-Resource Big Models Implementation**
+**Efficient Low-Resource Implementations of Big Models**
 
 </div>
 
@@ -32,20 +32,21 @@
 </p>
 
 ## What's New
-
-- 2022/04/27 [**ModelCenter 0.1.1**](https://github.com/OpenBMB/ModelCenter/releases/tag/v0.1.1) support RoBERTa. 
+- 2022/07/14 [**ModelCenter 0.1.4**]() ModelCenter supports Mengzi, GLM, Longformer, and KV_PLM.
+- 2022/07/05 [**ModelCenter 0.1.3**](https://github.com/OpenBMB/ModelCenter/releases/tag/v0.1.3) ModelCenter supports mT5, T5v1.1, ViT, and Wenzhong.
+- 2022/04/27 [**ModelCenter 0.1.1**](https://github.com/OpenBMB/ModelCenter/releases/tag/v0.1.1) ModelCenter supports RoBERTa. 
 - 2022/04/06 [**ModelCenter 0.1.0**](https://github.com/OpenBMB/ModelCenter/releases/tag/v0.1.0) ModelCenter has publicly released the first stable version, which fixes some bugs in model performance and GPU memory usage.
 - 2022/03/21 [**ModelCenter 0.0.1-beta**](https://github.com/OpenBMB/ModelCenter/releases/tag/v0.0.1-beta) ModelCenter has publicly released the first beta version.
 
 ## Overview
 
-ModelCenter implements pre-trained language models (PLMs) based on [OpenBMB/BMTrain](https://github.com/OpenBMB/BMTrain/) backend. ModelCenter supports Efficient, Low-Resource, Extendable model usage and distributed training.
+ModelCenter implements pre-trained language models (PLMs) based on the backend [OpenBMB/BMTrain](https://github.com/OpenBMB/BMTrain/). ModelCenter supports Efficient, Low-Resource, Extendable model usage and distributed training.
 
 Our main advantages are:
 
 - **Easy to use**. Compared to Deepspeed and Megatron, we have better and more flexible code-packaging and easy to configure python environments, and the training code is uniform with PyTorch style.
 - **More efficient memory utilization**. Models with large memory footprints can cause OOM (out of memory) before the computational power of the GPU is fully utilized. Our implementation reduces the memory footprint by several times, allowing more efficient use of the GPU's computational power with a larger batch size.
-- **Efficient distributed training with low resources**. With the support of [OpenBMB/BMTrain](https://github.com/OpenBMB/BMTrain/), we are able to easily extend ZeRO3's optimization to any PLMs, and we optimize communication and time scheduling for faster distributed training.
+- **Efficient distributed training with low resources**. With the support of [OpenBMB/BMTrain](https://github.com/OpenBMB/BMTrain/), we are able to easily extend the [ZeRO](https://ieeexplore.ieee.org/abstract/document/9355301) optimization to any PLMs, and we optimize communication and time scheduling for faster distributed training.
 
 ## Documentation
 
@@ -106,7 +107,7 @@ model = BertModel(config)
 
 If only config is needed instead of pretrained checkpoint, you can initialize a model as the following:
 
-```
+```python
 config = BertConfig.from_json_file("your/path/to/config.json")
 model = Bert(config)
 bmt.init_parameters(model)
@@ -215,6 +216,7 @@ for epoch in range(5):
 ```
 
 ### 5. Run your code
+
 You can run the above code using the same launch command as the distributed module of PyTorch.
 
 Choose one of the following commands depending on your version of PyTorch.
@@ -225,33 +227,43 @@ Choose one of the following commands depending on your version of PyTorch.
 * `${GPU_PER_NODE}` means the number of GPUs per node.
 * `${NODE_RANK}` means the rank of this node.
 
-#### torch.distributed.launch
-```shell
-$ python3 -m torch.distributed.launch --master_addr ${MASTER_ADDR} --master_port ${MASTER_PORT} --nproc_per_node ${GPU_PER_NODE} --nnodes ${NNODES} --node_rank ${NODE_RANK} train.py
-```
-
-#### torchrun
+#### torch.distributed.launch (more suitable for torch < 1.10)
 
 ```shell
-$ torchrun --nnodes=${NNODES} --nproc_per_node=${GPU_PER_NODE} --rdzv_id=1 --rdzv_backend=c10d --rdzv_endpoint=${MASTER_ADDR}:${MASTER_PORT} train.py
+$ python3 -m torch.distributed.launch --master_addr ${MASTER_ADDR} \
+                                      --master_port ${MASTER_PORT} \
+                                      --nproc_per_node ${GPU_PER_NODE} \
+                                      --nnodes ${NNODES} \
+                                      --node_rank ${NODE_RANK} \
+                                      train.py
 ```
 
+#### torchrun (more suitable for torch >= 1.10)
 
-For more information, please refer to the [documentation](https://pytorch.org/docs/stable/distributed.html#launch-utility).
+```shell
+$ torchrun --nnodes=${NNODES} \
+           --nproc_per_node=${GPU_PER_NODE} \
+           --rdzv_id=1 \
+           --rdzv_backend=c10d \
+           --rdzv_endpoint=${MASTER_ADDR}:${MASTER_PORT} \
+           train.py
+```
+
+More information can be found from the [documentation](https://pytorch.org/docs/stable/distributed.html#launch-utility).
 
 
 ## Supported Models
 
 
-- CPM-1[^1]. We currently support loading the following checkpoint via ``CPM1.from_pretrained(identifier)`` of the following:
+- CPM-1[[paper](https://www.sciencedirect.com/science/article/pii/S266665102100019X)]. We currently support loading the following checkpoint via ``CPM1.from_pretrained(identifier)`` as follows,
 
     - cpm1-large
 
-- CPM-2[^2]. We currently support loading the following checkpoint via ``CPM2.from_pretrained(identifier)`` of the following:
+- CPM-2[[paper](https://www.sciencedirect.com/science/article/pii/S2666651021000310)]. We currently support loading the following checkpoint via ``CPM2.from_pretrained(identifier)`` as follows,
 
     - cpm2-large
 
-- BERT[^3]. We currently support loading the following checkpoint via ``Bert.from_pretrained(identifier)`` of the following:
+- BERT[[paper](https://arxiv.org/abs/1810.04805)]. We currently support loading the following checkpoint via ``Bert.from_pretrained(identifier)`` as follows,
 
     - bert-base-cased
     - bert-base-uncased
@@ -259,30 +271,55 @@ For more information, please refer to the [documentation](https://pytorch.org/do
     - bert-large-uncased
     - bert-base-chinese
     - bert-base-multilingual-cased
+    - kv-plm
 
-- RoBERTa[^4]. We currently support loading the following checkpoint via ``Roberta.from_pretrained(identifier)`` of the following:
+- RoBERTa[[paper](https://arxiv.org/abs/1907.11692)]. We currently support loading the following checkpoint via ``Roberta.from_pretrained(identifier)`` of the following:
 
     - roberta-base
     - roberta-large
 
-- T5[^5]. We currently support loading the following checkpoint via ``T5.from_pretrained(identifier)`` of the following:
+- T5[[paper](https://arxiv.org/abs/1910.10683)]. We currently support loading the following checkpoint via ``T5.from_pretrained(identifier)`` of the following:
 
     - t5-small
     - t5-base
     - t5-large
     - t5-3b
     - t5-11b
+    - t5-v1_1-small
+    - t5-v1_1-base
+    - t5-v1_1-large
+    - t5-v1_1-xl
+    - t5-v1_1-xxl
+    - mt5-small
+    - mt5-base
+    - mt5-large
+    - mt5-xl
+    - mt5-xxl
+    - mengzi-t5-base
 
-- GPT-2[^6]. We currently support loading the following checkpoint via ``GPT2.from_pretrained(identifier)`` of the following:
+- GPT-2[[paper](http://www.persagen.com/files/misc/radford2019language.pdf)]. We currently support loading the following checkpoint via ``GPT2.from_pretrained(identifier)`` of the following:
 
     - gpt2-base
     - gpt2-medium
     - gpt2-large
     - gpt2-xl
+    - wenzhong-gpt2-3.5b
 
-- GPT-J[^7]. We currently support loading the following checkpoint via ``GPTj.from_pretrained(identifier)`` of the following:
+- GPT-J[[paper](https://github.com/kingoflolz/mesh-transformer-jax)]. We currently support loading the following checkpoint via ``GPTj.from_pretrained(identifier)`` of the following:
 
     - gptj-6b
+ 
+- Longformer[[paper](https://arxiv.org/abs/2004.05150)]. we currently support loading the following checkpoint via `` Longformer.from_pretrained(identifier)``  of the following:
+
+    - lawformer
+
+- GLM[[paper](https://arxiv.org/abs/2103.10360)]. we currently support loading the following checkpoint via ``GLM.from_pretrained(identifier)`` of the following:
+
+    - glm-10b-zh
+
+- ViT[[paper](https://arxiv.org/abs/2010.11929)]. we currently support loading the following checkpoint via `` ViT.from_pretrained(identifier)``  of the following:
+
+    - vit-base-patch16-224 
 
 ## Performance
 
@@ -302,18 +339,3 @@ You can also find us on other platforms:
 
 The package is released under the [Apache 2.0](https://github.com/OpenBMB/ModelCenter/blob/main/LICENSE) License.
 
-## References
-
-[^1]: [CPM: A Large-scale Generative Chinese Pre-trained Language Model.](https://arxiv.org/abs/2012.00413) Zhengyan Zhang, Xu Han, Hao Zhou, Pei Ke, Yuxian Gu, Deming Ye, Yujia Qin, Yusheng Su, Haozhe Ji, Jian Guan, Fanchao Qi, Xiaozhi Wang, Yanan Zheng, Guoyang Zeng, Huanqi Cao, Shengqi Chen, Daixuan Li, Zhenbo Sun, Zhiyuan Liu, Minlie Huang, Wentao Han, Jie Tang, Juanzi Li, Xiaoyan Zhu, Maosong Sun.
-
-[^2]: [CPM-2: Large-scale Cost-efficient Pre-trained Language Models.](https://arxiv.org/abs/2106.10715) Zhengyan Zhang, Yuxian Gu, Xu Han, Shengqi Chen, Chaojun Xiao, Zhenbo Sun, Yuan Yao, Fanchao Qi, Jian Guan, Pei Ke, Yanzheng Cai, Guoyang Zeng, Zhixing Tan, Zhiyuan Liu, Minlie Huang, Wentao Han, Yang Liu, Xiaoyan Zhu, Maosong Sun.
-
-[^3]: [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding.](https://arxiv.org/abs/1810.04805) Jacob Devlin, Ming-Wei Chang, Kenton Lee and Kristina Toutanova.
-
-[^4]: [RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692) Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, Mandar Joshi, Danqi Chen, Omer Levy, Mike Lewis, Luke Zettlemoyer, Veselin Stoyanov.
-
-[^5]: [T5: Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer](https://arxiv.org/abs/1910.10683) Colin Raffel and Noam Shazeer and Adam Roberts and Katherine Lee and Sharan Narang and Michael Matena and Yanqi Zhou and Wei Li and Peter J. Liu.
-
-[^6]: [GPT2: Language Models are Unsupervised Multitask Learners.](http://www.persagen.com/files/misc/radford2019language.pdf) Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, and Ilya Sutskever.
-
-[^7]: [GPT-J](https://github.com/kingoflolz/mesh-transformer-jax) (from EleutherAI) released in the repo [mesh-transformer-jax](https://github.com/kingoflolz/mesh-transformer-jax) by Ben Wang and Aran Komatsuzaki.
